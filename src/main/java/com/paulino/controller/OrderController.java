@@ -107,4 +107,82 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    /**
+     * Update order status
+     */
+    @PatchMapping("/{orderId}/status")
+    public ResponseEntity<Map<String, Object>> updateOrderStatus(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            String statusStr = request.get("status");
+            if (statusStr == null || statusStr.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "Status is required");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            OrderData.OrderStatus status = OrderData.OrderStatus.valueOf(statusStr.toUpperCase());
+            OrderData updatedOrder = orderService.updateOrderStatus(orderId, status);
+            Order orderModel = orderService.convertToModel(updatedOrder);
+
+            response.put("success", true);
+            response.put("message", "Order status updated successfully");
+            response.put("order", orderModel);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", "Invalid status value");
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Failed to update order status: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Delete order
+     */
+    @DeleteMapping("/{orderId}")
+    public ResponseEntity<Map<String, Object>> deleteOrder(@PathVariable Long orderId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Optional<OrderData> orderData = orderService.getOrderById(orderId);
+            
+            if (!orderData.isPresent()) {
+                response.put("success", false);
+                response.put("message", "Order not found");
+                return ResponseEntity.notFound().build();
+            }
+
+            // Check if order can be deleted (only cancelled or delivered orders)
+            OrderData order = orderData.get();
+            OrderData.OrderStatus status = order.getOrderStatus();
+            
+            if (status != OrderData.OrderStatus.CANCELLED && status != OrderData.OrderStatus.DELIVERED) {
+                response.put("success", false);
+                response.put("message", "Only cancelled or delivered orders can be deleted");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            orderService.deleteOrder(orderId);
+            
+            response.put("success", true);
+            response.put("message", "Order deleted successfully");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Failed to delete order: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }

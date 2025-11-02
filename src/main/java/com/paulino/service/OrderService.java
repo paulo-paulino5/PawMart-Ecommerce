@@ -60,6 +60,12 @@ public interface OrderService {
     OrderData updatePaymentStatus(Long orderId, OrderData.PaymentStatus status);
     
     /**
+     * Delete order by ID
+     * @param orderId the order ID to delete
+     */
+    void deleteOrder(Long orderId);
+    
+    /**
      * Generate order number
      * @return unique order number
      */

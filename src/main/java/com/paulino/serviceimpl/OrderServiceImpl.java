@@ -272,4 +272,14 @@ public class OrderServiceImpl implements OrderService {
         // Implementation for updating
         return order;
     }
+
+    @Override
+    public void deleteOrder(Long orderId) {
+        Optional<OrderData> orderOpt = orderRepository.findById(orderId);
+        if (orderOpt.isPresent()) {
+            orderRepository.deleteById(orderId);
+        } else {
+            throw new RuntimeException("Order not found with ID: " + orderId);
+        }
+    }
 }
