@@ -82,4 +82,11 @@ export class OrderService {
   updatePaymentStatus(orderId: number, paymentStatus: string): Observable<any> {
     return this.http.patch<any>(`${this.apiUrl}/${orderId}/payment-status`, { paymentStatus });
   }
+
+  /**
+   * Delete order by ID
+   */
+  deleteOrder(orderId: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/${orderId}`);
+  }
 }

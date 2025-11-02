@@ -70,9 +70,23 @@ import { Order } from '../models/order.model';
                 </span>
               </div>
               
-              <button class="btn btn-outline btn-sm" (click)="viewOrderDetails(order.orderNumber!); $event.stopPropagation()">
-                View Details
-              </button>
+              <div class="action-buttons">
+                <button class="btn btn-outline btn-sm" (click)="viewOrderDetails(order.orderNumber!); $event.stopPropagation()">
+                  View Details
+                </button>
+                <button 
+                  *ngIf="canCancelOrder(order.orderStatus)"
+                  class="btn btn-danger btn-sm" 
+                  (click)="cancelOrder(order); $event.stopPropagation()">
+                  Cancel Order
+                </button>
+                <button 
+                  *ngIf="canDeleteOrder(order.orderStatus)"
+                  class="btn btn-danger-outline btn-sm" 
+                  (click)="deleteOrder(order); $event.stopPropagation()">
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -335,6 +349,32 @@ import { Order } from '../models/order.model';
       font-size: 0.85rem;
     }
 
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+
+    .btn-danger-outline {
+      background-color: transparent;
+      color: #dc3545;
+      border: 1px solid #dc3545;
+    }
+
+    .btn-danger-outline:hover {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
     .loading, .error {
       text-align: center;
       padding: 4rem 2rem;
@@ -499,5 +539,73 @@ export class OrderHistoryComponent implements OnInit {
 
   goToProducts() {
     this.router.navigate(['/products']);
+  }
+
+  canCancelOrder(status: string | undefined): boolean {
+    if (!status) return false;
+    const cancelableStatuses = ['PENDING', 'CONFIRMED'];
+    return cancelableStatuses.includes(status.toUpperCase());
+  }
+
+  canDeleteOrder(status: string | undefined): boolean {
+    if (!status) return false;
+    const deletableStatuses = ['CANCELLED', 'DELIVERED'];
+    return deletableStatuses.includes(status.toUpperCase());
+  }
+
+  async cancelOrder(order: Order) {
+    if (!order.id) {
+      alert('Unable to cancel order: Order ID not found.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to cancel order #${order.orderNumber}?`)) {
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(
+        this.orderService.updateOrderStatus(order.id, 'CANCELLED')
+      );
+
+      if (response.success) {
+        alert('Order cancelled successfully!');
+        await this.loadOrders(); // Reload the orders list
+      } else {
+        alert(response.message || 'Failed to cancel order.');
+      }
+    } catch (error: any) {
+      console.error('Failed to cancel order:', error);
+      alert('Failed to cancel order. Please try again.');
+    }
+  }
+
+  async deleteOrder(order: Order) {
+    if (!order.id) {
+      alert('Unable to delete order: Order ID not found.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete order #${order.orderNumber}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(
+        this.orderService.deleteOrder(order.id)
+      );
+
+      if (response.success) {
+        alert('Order deleted successfully!');
+        // Remove the order from the list
+        const updatedOrders = this.orders().filter(o => o.id !== order.id);
+        this.ordersSignal.set(updatedOrders);
+      } else {
+        alert(response.message || 'Failed to delete order.');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete order:', error);
+      alert('Failed to delete order. Please try again.');
+    }
   }
 }

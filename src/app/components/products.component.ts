@@ -1,7 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { Product, ProductCategory } from '../models/product.model';
 import { ProductService } from '../services/product.service';
 
@@ -132,7 +134,9 @@ import { ProductService } from '../services/product.service';
 
     .search-bar {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .search-input {
@@ -148,6 +152,12 @@ import { ProductService } from '../services/product.service';
     .search-input:focus {
       outline: none;
       border-color: #667eea;
+    }
+
+    .search-hint {
+      font-size: 0.85rem;
+      color: #667eea;
+      font-style: italic;
     }
 
     .category-filters {
@@ -330,18 +340,32 @@ import { ProductService } from '../services/product.service';
     }
   `]
 })
-export class ProductsComponent implements OnInit {
+export class ProductsComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   displayedProducts = signal<Product[]>([]);
   selectedCategory = signal<string | null>(null);
   searchQuery = '';
   sortBy = 'name';
 
+  // RxJS: Debounced search implementation
+  private searchSubject = new Subject<string>();
+  private searchSubscription?: Subscription;
+
   constructor(private productService: ProductService, private route: ActivatedRoute) {}
 
   ngOnInit() {
     this.products = this.productService.getProducts();
     this.displayedProducts.set(this.products);
+    
+    // RxJS: Setup debounced search
+    // Waits 300ms after user stops typing before applying filter
+    this.searchSubscription = this.searchSubject.pipe(
+      debounceTime(300),           // Wait 300ms after last keystroke
+      distinctUntilChanged()       // Only if search value changed
+    ).subscribe(searchQuery => {
+      this.searchQuery = searchQuery;
+      this.applyFilters();
+    });
     
     // Check for category parameter in URL
     this.route.queryParams.subscribe(params => {
@@ -351,13 +375,20 @@ export class ProductsComponent implements OnInit {
     });
   }
 
+  ngOnDestroy() {
+    // RxJS: Clean up subscription to prevent memory leaks
+    this.searchSubscription?.unsubscribe();
+  }
+
   filterByCategory(category: string | null) {
     this.selectedCategory.set(category);
     this.applyFilters();
   }
 
   onSearch() {
-    this.applyFilters();
+    // RxJS: Emit search query to debounced stream
+    // Instead of immediate filtering, wait for user to stop typing
+    this.searchSubject.next(this.searchQuery);
   }
 
   onSort() {
